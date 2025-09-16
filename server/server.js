@@ -5,7 +5,7 @@ import http from "http";
 import { connectDB } from "./lib/db.js";
 import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
-import { Server } from "socket.io"
+import { Server } from "socket.io";
 
 const app = express();
 const server = http.createServer(app);
@@ -54,11 +54,14 @@ app.use("/api/messages", messageRouter);
 // Start the server
 const startServer = async () => {
   try {
-    await connectDB(); // Connect MongoDB first
-    const PORT = process.env.PORT || 5000;
-    server.listen(PORT, () =>
-      console.log(`🚀 Server running on http://localhost:${PORT}`)
-    );
+    await connectDB();
+    if (process.env.NODE_ENV !== "production") {
+      // Connect MongoDB first
+      const PORT = process.env.PORT || 5000;
+      server.listen(PORT, () =>
+        console.log(`🚀 Server running on http://localhost:${PORT}`)
+      );
+    }
   } catch (error) {
     console.error("❌ Failed to start server:", error.message);
     process.exit(1); // Exit if DB connection fails
