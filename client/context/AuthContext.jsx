@@ -3,7 +3,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
-const backendURL = "https://chat-up-backend.vercel.app" ;
+const backendURL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000" ;
 axios.defaults.baseURL = backendURL;
 
 export const AuthContext = createContext();
