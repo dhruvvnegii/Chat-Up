@@ -1,0 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Martel+Sans:wght@200;300;400;600;700;800;900&family=Outfit:wght@100..900&display=swap');
+@import "tailwindcss";
+
+* {
+  font-family: "Martel Sans", sans-serif;
+}
+
+/* Hide scrollbar for Chrome, Safari, Edge */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for Firefox */
+* {
+  scrollbar-width: none; 
+  -ms-overflow-style: none; /* IE and Edge */
+}
