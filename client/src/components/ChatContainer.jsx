@@ -84,6 +84,10 @@ const ChatContainer = () => {
       <div className="flex flex-col h-[calc(100%-120px)] overflow-y-scroll p-3 pb-6">
         {messages.map((msg, index) => {
           const isMe = msg.senderId === authUser._id;
+          
+          // DEBUG: Log message alignment data
+          console.log(`Message ${index}: senderId="${msg.senderId}", authUser._id="${authUser._id}", isMe=${isMe}, text="${msg.text}"`);
+          
           return (
             <div
               key={index}

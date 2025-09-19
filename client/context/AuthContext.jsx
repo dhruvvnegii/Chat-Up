@@ -3,7 +3,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
-const backendURL = import.meta.env.VITE_BACKEND_URL ;
+const backendURL = import.meta.env.meta.VITE_BACKEND_URL;
 axios.defaults.baseURL = backendURL;
 
 export const AuthContext = createContext();
@@ -11,7 +11,7 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token"));
 
-  // ✅ Load user from localStorage if available
+  // Load user from localStorage if available
   const [authUser, setAuthUser] = useState(() => {
     const storedUser = localStorage.getItem("authUser");
     return storedUser ? JSON.parse(storedUser) : null;
@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
       const { data } = await axios.get("/api/auth/check");
       if (data.success) {
         setAuthUser(data.user);
-        localStorage.setItem("authUser", JSON.stringify(data.user)); // ✅ keep in sync
+        localStorage.setItem("authUser", JSON.stringify(data.user));
         connectSocket(data.user);
       }
     } catch (error) {
@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
       const { data } = await axios.post(`/api/auth/${state}`, credentials);
       if (data.success) {
         setAuthUser(data.userData);
-        localStorage.setItem("authUser", JSON.stringify(data.userData)); // ✅ save
+        localStorage.setItem("authUser", JSON.stringify(data.userData));
         connectSocket(data.userData);
 
         axios.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
   // Logout
   const logout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("authUser"); // ✅ clear stored user
+    localStorage.removeItem("authUser");
     setToken(null);
     setAuthUser(null);
     setOnlineUsers([]);
@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await axios.put("/api/auth/update-profile", body);
       if (data.success) {
-        const updatedUser = data.user || data.updatedUser || data.userData; // fallback keys
+        const updatedUser = data.user || data.updatedUser || data.userData;
         if (updatedUser) {
           setAuthUser(updatedUser);
           localStorage.setItem("authUser", JSON.stringify(updatedUser));
@@ -90,9 +90,27 @@ export const AuthProvider = ({ children }) => {
   // Connect socket
   const connectSocket = (userData) => {
     if (!userData || socket?.connected) return;
-    const newSocket = io(backendURL, { query: { userId: userData._id } });
+    
+    const newSocket = io(backendURL, { 
+      query: { userId: userData._id },
+      transports: ['websocket', 'polling']
+    });
+    
+    newSocket.on('connect', () => {
+      console.log("Socket connected successfully");
+    });
+    
+    newSocket.on('disconnect', () => {
+      console.log("Socket disconnected");
+    });
+    
+    newSocket.on('connect_error', (error) => {
+      console.error("Socket connection error:", error);
+    });
+    
     newSocket.connect();
     setSocket(newSocket);
+    
     newSocket.on("getOnlineUsers", (users) => {
       setOnlineUsers(users);
     });
@@ -102,6 +120,9 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       checkAuth();
+    } else if (authUser) {
+      // If no token but user exists in localStorage, try to connect socket
+      connectSocket(authUser);
     }
   }, []);
 

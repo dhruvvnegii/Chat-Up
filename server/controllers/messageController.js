@@ -30,7 +30,6 @@ export const getUsersForSidebar = async (req, res) => {
 };
 
 // Get all message for selected chat
-
 export const getMessages = async (req, res) => {
   try {
     const { id: selectedUserId } = req.params;
@@ -63,7 +62,7 @@ export const getMessages = async (req, res) => {
   }
 };
 
-//api to mark nessages as seen
+//api to mark messages as seen
 export const markMessagesAsSeen = async (req, res) => {
   try {
     const { id } = req.params;
@@ -87,6 +86,7 @@ export const sendMessage = async (req, res) => {
       const uploadResponse = await cloudinary.uploader.upload(image);
       imageUrl = uploadResponse.secure_url;
     }
+    
     const newMessage = await Message.create({
       senderId,
       recieverId,
@@ -94,15 +94,15 @@ export const sendMessage = async (req, res) => {
       image: imageUrl,
     });
 
-    //emit to reciever if online
+    // Emit to receiver if online
     const receiverSocketId = userSocketMap[recieverId];
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", newMessage);
     }
+
     res.json({
       success: true,
-      message: "Message sent successfully",
-      newMessage,
+      message: newMessage,
     });
   } catch (error) {
     console.error("Error sending message:", error);
