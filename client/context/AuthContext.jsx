@@ -10,24 +10,33 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token"));
-
-  // Load user from localStorage if available
-  const [authUser, setAuthUser] = useState(() => {
-    const storedUser = localStorage.getItem("authUser");
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
-
+  const [authUser, setAuthUser] = useState(null); // user object comes from backend
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [socket, setSocket] = useState(null);
 
-  // Check authentication from backend
+  // Fetch user profile from backend
+  const fetchUserProfile = async (userId) => {
+    try {
+      const { data } = await axios.get(`/api/auth/user/${userId}`);
+      if (data.success) {
+        setAuthUser(data.user);
+        connectSocket(data.user);
+      }
+    } catch (error) {
+      console.error("Failed to fetch profile:", error);
+      logout();
+    }
+  };
+
+  // Check authentication
   const checkAuth = async () => {
     try {
       const { data } = await axios.get("/api/auth/check");
       if (data.success) {
         setAuthUser(data.user);
-        localStorage.setItem("authUser", JSON.stringify(data.user));
         connectSocket(data.user);
+      } else {
+        logout();
       }
     } catch (error) {
       toast.error("Session expired. Please login again.");
@@ -40,13 +49,16 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await axios.post(`/api/auth/${state}`, credentials);
       if (data.success) {
-        setAuthUser(data.userData);
-        localStorage.setItem("authUser", JSON.stringify(data.userData));
-        connectSocket(data.userData);
+        const { token, userData } = data;
 
-        axios.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
-        setToken(data.token);
-        localStorage.setItem("token", data.token);
+        // save minimal info
+        localStorage.setItem("token", token);
+        localStorage.setItem("userId", userData._id);
+
+        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        setToken(token);
+        setAuthUser(userData);
+        connectSocket(userData);
 
         toast.success(data.message);
       } else {
@@ -60,26 +72,21 @@ export const AuthProvider = ({ children }) => {
   // Logout
   const logout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("authUser");
+    localStorage.removeItem("userId");
     setToken(null);
     setAuthUser(null);
     setOnlineUsers([]);
     delete axios.defaults.headers.common["Authorization"];
-
-    toast.success("Logged out successfully");
     socket?.disconnect();
+    toast.success("Logged out successfully");
   };
 
   // Update profile
   const updateProfile = async (body) => {
     try {
       const { data } = await axios.put("/api/auth/update-profile", body);
-      if (data.success) {
-        const updatedUser = data.user || data.updatedUser || data.userData;
-        if (updatedUser) {
-          setAuthUser(updatedUser);
-          localStorage.setItem("authUser", JSON.stringify(updatedUser));
-        }
+      if (data.success && data.user) {
+        setAuthUser(data.user);
         toast.success("Successfully updated profile");
       }
     } catch (error) {
@@ -90,39 +97,39 @@ export const AuthProvider = ({ children }) => {
   // Connect socket
   const connectSocket = (userData) => {
     if (!userData || socket?.connected) return;
-    
-    const newSocket = io(backendURL, { 
+
+    const newSocket = io(backendURL, {
       query: { userId: userData._id },
-      transports: ['websocket', 'polling']
+      transports: ["websocket", "polling"],
     });
-    
-    newSocket.on('connect', () => {
-      console.log("Socket connected successfully");
-    });
-    
-    newSocket.on('disconnect', () => {
-      console.log("Socket disconnected");
-    });
-    
-    newSocket.on('connect_error', (error) => {
-      console.error("Socket connection error:", error);
-    });
-    
-    newSocket.connect();
+
+    newSocket.on("connect", () => console.log("Socket connected successfully"));
+    newSocket.on("disconnect", () => console.log("Socket disconnected"));
+    newSocket.on("connect_error", (error) =>
+      console.error("Socket connection error:", error)
+    );
+
     setSocket(newSocket);
-    
+
     newSocket.on("getOnlineUsers", (users) => {
       setOnlineUsers(users);
     });
   };
 
+  // On app load
   useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      checkAuth();
-    } else if (authUser) {
-      // If no token but user exists in localStorage, try to connect socket
-      connectSocket(authUser);
+    const storedToken = localStorage.getItem("token");
+    const storedUserId = localStorage.getItem("userId");
+
+    if (storedToken) {
+      axios.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
+      setToken(storedToken);
+
+      if (storedUserId) {
+        fetchUserProfile(storedUserId);
+      } else {
+        checkAuth(); // fallback check
+      }
     }
   }, []);
 
